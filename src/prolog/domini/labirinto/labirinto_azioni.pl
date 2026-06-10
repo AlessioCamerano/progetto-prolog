@@ -1,5 +1,5 @@
 % -------------------------------------------------------------------------
-% Azioni del labirinto (commenti e divisori minimali)
+% Azioni del labirinto
 % -------------------------------------------------------------------------
 
 :- multifile num_col/1.

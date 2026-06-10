@@ -1,5 +1,5 @@
 % -------------------------------------------------------------------------
-% Euristiche (commenti e divisori minimali)
+% Euristica per il labirinto e l'8-puzzle
 % -------------------------------------------------------------------------
 
 :- multifile finale/1.

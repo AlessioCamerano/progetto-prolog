@@ -1,5 +1,5 @@
 % -------------------------------------------------------------------------
-% Motore di ricerca IDA* (commenti e divisori minimali)
+% Motore di ricerca IDA*
 % -------------------------------------------------------------------------
 
 :- multifile iniziale/1, finale/1, applicabile/2, trasforma/3, euristica/2.

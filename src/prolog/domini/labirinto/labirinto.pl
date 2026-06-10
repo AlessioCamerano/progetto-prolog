@@ -1,6 +1,5 @@
 % -------------------------------------------------------------------------
 % Dominio labirinto (griglia, stato iniziale, goal, ostacoli)
-% Intestazione e divisore minimi
 % -------------------------------------------------------------------------
 
 :- multifile num_righe/1, num_col/1, iniziale/1, finale/1, occupata/1.

@@ -1,5 +1,5 @@
 % -------------------------------------------------------------------------
-% Punto di ingresso principale (intestazione e divisori minimali)
+% Punto di ingresso principale
 % -------------------------------------------------------------------------
 
 % Carica i motori e i domini dalla nuova struttura a cartelle

@@ -1,5 +1,5 @@
 % -------------------------------------------------------------------------
-% Azioni del puzzle (commenti e divisori minimali)
+% Azioni dell' 8-puzzle
 % -------------------------------------------------------------------------
 
 applicabile(su, Stato)       :- nth0(Pos, Stato, 0), Pos > 2.
