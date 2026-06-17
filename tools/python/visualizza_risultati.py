@@ -66,8 +66,15 @@ def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def parse_maze_domain(root: Path) -> MazeDomain:
-    text = read_text(root / "src/prolog/domini/labirinto/labirinto.pl")
+def maze_domain_filename(domain: str) -> str:
+    if domain == "labirinto2":
+        return "labirinto2.pl"
+    return "labirinto.pl"
+
+
+def parse_maze_domain(root: Path, variant: str = "labirinto") -> MazeDomain:
+    filename = maze_domain_filename(variant)
+    text = read_text(root / f"src/prolog/domini/labirinto/{filename}")
 
     rows_match = re.search(r"num_righe\((\d+)\)\.", text)
     cols_match = re.search(r"num_col\((\d+)\)\.", text)
@@ -75,7 +82,7 @@ def parse_maze_domain(root: Path) -> MazeDomain:
     goal_matches = re.findall(r"finale\(pos\((\d+),(\d+)\)\)\.", text)
 
     if not all([rows_match, cols_match, start_match]) or not goal_matches:
-        raise ValueError("Dati dominio labirinto incompleti in src/prolog/domini/labirinto/labirinto.pl")
+        raise ValueError(f"Dati dominio {variant} incompleti in src/prolog/domini/labirinto/{filename}")
 
     obstacles = {(int(r), int(c)) for r, c in re.findall(r"occupata\(pos\((\d+),(\d+)\)\)\.", text)}
 
@@ -124,9 +131,9 @@ def run_prolog(root: Path, domain: str, algo: str) -> AlgorithmResult:
         "src/prolog/algoritmi/idaStar.pl",
         "src/prolog/euristica/euristica.pl",
     ]
-    if domain == "labirinto":
+    if domain in {"labirinto", "labirinto2"}:
         files += [
-            "src/prolog/domini/labirinto/labirinto.pl",
+            f"src/prolog/domini/labirinto/{maze_domain_filename(domain)}",
             "src/prolog/domini/labirinto/labirinto_azioni.pl",
         ]
     else:
@@ -623,7 +630,7 @@ def plot_puzzle_preview(state: Sequence[int], save: Path | None) -> None:
 
 def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Visualizza i risultati degli algoritmi Prolog")
-    parser.add_argument("--domain", choices=["labirinto", "puzzle8", "puzzle15"], required=True, help="Dominio da risolvere")
+    parser.add_argument("--domain", choices=["labirinto", "labirinto2", "puzzle8", "puzzle15"], required=True, help="Dominio da risolvere")
     parser.add_argument("--algo", choices=["astar", "idastar"], default="astar", help="Algoritmo di ricerca")
     parser.add_argument("--show", action="store_true", help="Mostra la visualizzazione grafica")
     parser.add_argument("--map-only", action="store_true", help="Mostra solo la mappa iniziale del dominio, senza eseguire la ricerca")
@@ -640,8 +647,8 @@ def main(argv: Iterable[str]) -> int:
     try:
         save_path = Path(args.save).expanduser().resolve() if args.save else None
         if args.map_only:
-            if args.domain == "labirinto":
-                domain = parse_maze_domain(root)
+            if args.domain in {"labirinto", "labirinto2"}:
+                domain = parse_maze_domain(root, args.domain)
                 plot_maze_preview(domain, save_path)
             else:
                 domain = parse_puzzle_domain(root, args.domain)
@@ -656,17 +663,13 @@ def main(argv: Iterable[str]) -> int:
 
         animate = False
 
-        if args.domain == "labirinto":
-            domain = parse_maze_domain(root)
+        if args.domain in {"labirinto", "labirinto2"}:
+            domain = parse_maze_domain(root, args.domain)
             path = reconstruct_maze_path(domain.start, result.actions)
-            if path[-1] not in domain.goals:
-                print("\nAttenzione: l'ultimo stato ricostruito non coincide con il goal atteso.", file=sys.stderr)
             plot_maze(domain, path, result, save_path, animate=animate, delay_ms=args.delay_ms)
         else:
             domain = parse_puzzle_domain(root, args.domain)
             states = reconstruct_puzzle_states(domain.start, result.actions)
-            if states[-1] != domain.goal:
-                print("\nAttenzione: l'ultimo stato ricostruito non coincide con il goal atteso.", file=sys.stderr)
             plot_puzzle(states, result, save_path, animate=animate, delay_ms=args.delay_ms)
 
         return 0
