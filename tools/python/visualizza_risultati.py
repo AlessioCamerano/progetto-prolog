@@ -88,13 +88,14 @@ def parse_maze_domain(root: Path) -> MazeDomain:
     )
 
 
-def parse_puzzle_domain(root: Path) -> PuzzleDomain:
-    text = read_text(root / "src/prolog/domini/puzzle/puzzle.pl")
+def parse_puzzle_domain(root: Path, variant: str = "puzzle") -> PuzzleDomain:
+    filename = "puzzle.pl" if variant == "puzzle8" or variant == "puzzle" else "puzzle15.pl"
+    text = read_text(root / f"src/prolog/domini/puzzle/{filename}")
     init_match = re.search(r"iniziale\((\[[^\]]*\])\)\.", text)
     goal_match = re.search(r"finale\((\[[^\]]*\])\)\.", text)
 
     if not init_match or not goal_match:
-        raise ValueError("Dati dominio puzzle incompleti in src/prolog/domini/puzzle/puzzle.pl")
+        raise ValueError(f"Dati dominio puzzle incompleti in src/prolog/domini/puzzle/{filename}")
 
     return PuzzleDomain(start=parse_number_list(init_match.group(1)), goal=parse_number_list(goal_match.group(1)))
 
@@ -129,10 +130,17 @@ def run_prolog(root: Path, domain: str, algo: str) -> AlgorithmResult:
             "src/prolog/domini/labirinto/labirinto_azioni.pl",
         ]
     else:
-        files += [
-            "src/prolog/domini/puzzle/puzzle.pl",
-            "src/prolog/domini/puzzle/puzzle_azioni.pl",
-        ]
+        # support puzzle8 and puzzle15
+        if domain == "puzzle15":
+            files += [
+                "src/prolog/domini/puzzle/puzzle15.pl",
+                "src/prolog/domini/puzzle/puzzle15_azioni.pl",
+            ]
+        else:
+            files += [
+                "src/prolog/domini/puzzle/puzzle.pl",
+                "src/prolog/domini/puzzle/puzzle_azioni.pl",
+            ]
 
     cmd: List[str] = ["swipl", "-q"]
     for f in files:
@@ -194,8 +202,9 @@ def reconstruct_maze_path(start: Tuple[int, int], actions: Sequence[str]) -> Lis
 
 def apply_puzzle_action(state: Sequence[int], action: str) -> List[int]:
     s = list(state)
+    n = int(len(s) ** 0.5)
     zero = s.index(0)
-    offsets = {"su": -3, "giu": 3, "sinistra": -1, "destra": 1}
+    offsets = {"su": -n, "giu": n, "sinistra": -1, "destra": 1}
     if action not in offsets:
         raise ValueError(f"Azione puzzle non riconosciuta: {action}")
     j = zero + offsets[action]
@@ -439,7 +448,8 @@ def plot_maze_preview(domain: MazeDomain, save: Path | None) -> None:
 
 
 def puzzle_to_rows(state: Sequence[int]) -> List[List[int]]:
-    return [list(state[i: i + 3]) for i in range(0, 9, 3)]
+    n = int(len(state) ** 0.5)
+    return [list(state[i: i + n]) for i in range(0, len(state), n)]
 
 
 def pick_keyframes(states: Sequence[Sequence[int]], max_frames: int = 12) -> List[Tuple[int, Sequence[int]]]:
@@ -462,9 +472,12 @@ def plot_puzzle(
     from matplotlib.animation import FuncAnimation
     from matplotlib.patches import Rectangle
 
+    n = int(len(states[0]) ** 0.5)
+    size_label = f"Puzzle {n*n}"
+
     if not animate:
         keyframes = list(enumerate(states))
-        cols = 4
+        cols = min(6, max(3, int(len(keyframes) ** 0.5)))
         rows = (len(keyframes) + cols - 1) // cols
 
         fig, axes = plt.subplots(rows, cols, figsize=(4.2 * cols, 3.6 * rows))
@@ -482,16 +495,16 @@ def plot_puzzle(
             r = i // cols
             c = i % cols
             ax = axes[r][c]
-            ax.set_xlim(0, 3)
-            ax.set_ylim(0, 3)
+            ax.set_xlim(0, n)
+            ax.set_ylim(0, n)
             ax.set_aspect("equal")
             ax.axis("off")
 
-            rows3 = puzzle_to_rows(state)
-            for rr in range(3):
-                for cc in range(3):
-                    val = rows3[rr][cc]
-                    y = 2 - rr
+            rowsN = puzzle_to_rows(state)
+            for rr in range(n):
+                for cc in range(n):
+                    val = rowsN[rr][cc]
+                    y = n - 1 - rr
                     if val == 0:
                         fill = "#eef2f5"
                         text = ""
@@ -505,7 +518,7 @@ def plot_puzzle(
 
             ax.set_title(f"Step {step}", fontsize=10)
 
-        fig.suptitle(f"Puzzle 8 - {len(result.actions)} mosse | costo={result.cost} | tempo={result.time_s:.3f}s", fontsize=14)
+        fig.suptitle(f"{size_label} - {len(result.actions)} mosse | costo={result.cost} | tempo={result.time_s:.3f}s", fontsize=14)
         plt.tight_layout()
 
         if save:
@@ -515,22 +528,25 @@ def plot_puzzle(
             plt.show()
         return
 
+    n = int(len(states[0]) ** 0.5)
     fig, ax = plt.subplots(figsize=(6, 6))
-    ax.set_xlim(0, 3)
-    ax.set_ylim(0, 3)
+    ax.set_xlim(0, n)
+    ax.set_ylim(0, n)
     ax.set_aspect("equal")
     ax.axis("off")
 
     tile_rects = []
     tile_texts = []
-    for rr in range(3):
-        for cc in range(3):
-            y = 2 - rr
+    for rr in range(n):
+        for cc in range(n):
+            y = n - 1 - rr
             rect = Rectangle((cc, y), 1, 1, facecolor="#eef2f5", edgecolor="#1f2d3a", linewidth=2)
             ax.add_patch(rect)
             txt = ax.text(cc + 0.5, y + 0.5, "", ha="center", va="center", color="white", fontsize=20, weight="bold")
             tile_rects.append(rect)
             tile_texts.append(txt)
+
+    size_label = f"Puzzle {n*n}"
 
     def set_state(step: int):
         state = states[step]
@@ -541,7 +557,7 @@ def plot_puzzle(
             else:
                 tile_rects[idx].set_facecolor("#5a8f7b")
                 tile_texts[idx].set_text(str(val))
-        ax.set_title((f"Puzzle 8 - step {step}/{len(states) - 1}" f" | costo={result.cost} | tempo={result.time_s:.3f}s"), fontsize=12)
+        ax.set_title((f"{size_label} - step {step}/{len(states) - 1}" f" | costo={result.cost} | tempo={result.time_s:.3f}s"), fontsize=12)
         return tile_rects + tile_texts
 
     ani = FuncAnimation(fig, set_state, frames=len(states), interval=delay_ms, repeat=False, blit=False)
@@ -607,7 +623,7 @@ def plot_puzzle_preview(state: Sequence[int], save: Path | None) -> None:
 
 def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Visualizza i risultati degli algoritmi Prolog")
-    parser.add_argument("--domain", choices=["labirinto", "puzzle"], required=True, help="Dominio da risolvere")
+    parser.add_argument("--domain", choices=["labirinto", "puzzle8", "puzzle15"], required=True, help="Dominio da risolvere")
     parser.add_argument("--algo", choices=["astar", "idastar"], default="astar", help="Algoritmo di ricerca")
     parser.add_argument("--show", action="store_true", help="Mostra la visualizzazione grafica")
     parser.add_argument("--map-only", action="store_true", help="Mostra solo la mappa iniziale del dominio, senza eseguire la ricerca")
@@ -628,7 +644,7 @@ def main(argv: Iterable[str]) -> int:
                 domain = parse_maze_domain(root)
                 plot_maze_preview(domain, save_path)
             else:
-                domain = parse_puzzle_domain(root)
+                domain = parse_puzzle_domain(root, args.domain)
                 plot_puzzle_preview(domain.start, save_path)
             return 0
 
@@ -647,7 +663,7 @@ def main(argv: Iterable[str]) -> int:
                 print("\nAttenzione: l'ultimo stato ricostruito non coincide con il goal atteso.", file=sys.stderr)
             plot_maze(domain, path, result, save_path, animate=animate, delay_ms=args.delay_ms)
         else:
-            domain = parse_puzzle_domain(root)
+            domain = parse_puzzle_domain(root, args.domain)
             states = reconstruct_puzzle_states(domain.start, result.actions)
             if states[-1] != domain.goal:
                 print("\nAttenzione: l'ultimo stato ricostruito non coincide con il goal atteso.", file=sys.stderr)
